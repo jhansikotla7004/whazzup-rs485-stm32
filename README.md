@@ -145,16 +145,6 @@ The system was tested using the following methods:
 
 ---
 
-## Results
-The system successfully transmitted the message over the RS485 bus.
-
-Observed terminal output:
-
-```text
-=== PERSON 1 TRANSMITTER READY ===
-Sending: Hello from Person 1
-Sending: Hello from Person 1
-Sending: Hello from Person 1
 
 ## 📷 Circuit Diagram
 ![Schematic](Schematic.png)
@@ -175,3 +165,20 @@ https://github.com/jhansikotla7004/whazzup-rs485-stm32/blob/main/src/main.c
 
 ## Author
 KOTLA JHANSI LAKSHMI
+
+
+
+## Results
+The system successfully transmitted the message over the RS485 bus.
+
+Observed terminal output:
+
+```text
+=== PERSON 1 TRANSMITTER READY ===
+Sending: Hello from Person 1
+Sending: Hello from Person 1
+Sending: Hello from Person 1
+
+
+
+
