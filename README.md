@@ -77,16 +77,12 @@ Serial monitor output confirmed that the communication logic worked correctly.
 ![Schematic](Schematic.png)
 
 ## 💻 Source Code
-
-The main program is located in:
-
+The main program is available in:
 `src/main.c`
-
 ### Key Features:
 - UART communication using USART1 and USART2  
-- RS485 direction control using PB5  
-- Register-level programming  
-
+- RS485 communication using SN75176  
+- Direction control using PB5 (DE/RE)   
 ## Demo Video
 
 
