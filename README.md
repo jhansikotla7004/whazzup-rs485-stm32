@@ -76,6 +76,10 @@ Serial monitor output confirmed that the communication logic worked correctly.
 ## 📷 Circuit Diagram
 ![Schematic](Schematic.png)
 
+## Block daigram
+<img width="767" height="133" alt="image" src="https://github.com/user-attachments/assets/c6a8e449-91dc-4025-851f-40c9b08250dc" />
+
+
 ## 💻 Source Code
 The main program is available in:
 https://github.com/jhansikotla7004/whazzup-rs485-stm32/blob/main/src/main.c
