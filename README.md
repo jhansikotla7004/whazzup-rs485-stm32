@@ -74,9 +74,19 @@ Serial monitor output confirmed that the communication logic worked correctly.
 
 ## Circuit Diagram
 ![Schematic](schematic.png)
+## 💻 Source Code
+
+The main program is located in:
+
+`src/main.c`
+
+### Key Features:
+- UART communication using USART1 and USART2  
+- RS485 direction control using PB5  
+- Register-level programming  
 
 ## Demo Video
-Paste your YouTube link here
+
 
 ## Author
-Your Name
+KOTLA JHANSI LAKSHMI
