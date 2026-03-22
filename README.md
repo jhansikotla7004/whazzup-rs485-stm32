@@ -1,127 +1,82 @@
-#include "stm32l4xx.h"
+# WhazzUp – RS485 Communication using STM32
 
-#define CPU_CLOCK 4000000UL
+## Overview
+This project demonstrates communication between two STM32 boards using UART extended with RS485. The aim of the project is to achieve reliable communication between embedded systems using differential signaling.
 
-void delay_ms(volatile uint32_t ms)
-{
-    for (volatile uint32_t i = 0; i < ms * 4000; i++);
-}
+## Project Aim
+To design and implement communication between two STM32 boards using UART and RS485.
 
-// ---------------- USART2 : PC terminal ----------------
-void USART2_SendChar(char c)
-{
-    while ((USART2->ISR & (1 << 7)) == 0);   // TXE
-    USART2->TDR = c;
-}
+## Objectives
+- To implement UART communication on STM32
+- To interface the SN75176 RS485 transceiver
+- To transmit data reliably between two boards
+- To control transmit and receive mode using GPIO
+- To verify the system using serial monitor and LED indication
 
-void USART2_SendString(const char *s)
-{
-    while (*s)
-    {
-        USART2_SendChar(*s++);
-    }
-}
+## Hardware Used
+- STM32L432KC
+- SN75176AP RS485 Transceiver
+- Breadboard
+- Jumper wires
+- LED
+- Resistor
+- USB cable
 
-// ---------------- USART1 : RS485 ----------------
-void USART1_SendChar(char c)
-{
-    while ((USART1->ISR & (1 << 7)) == 0);   // TXE
-    USART1->TDR = c;
-}
+## Circuit Connections
 
-void USART1_SendString(const char *s)
-{
-    while (*s)
-    {
-        USART1_SendChar(*s++);
-    }
+| STM32 Pin | SN75176 Pin | Function |
+|----------|-------------|----------|
+| PA9      | DI          | UART transmit to RS485 |
+| PA10     | RO          | UART receive from RS485 |
+| PB5      | DE and RE   | Direction control |
+| +5V      | VCC         | Power supply |
+| GND      | GND         | Ground |
 
-    while ((USART1->ISR & (1 << 6)) == 0);   // TC
-}
+## LED Connection
+PB5 is also connected to an LED through a resistor.  
+This LED gives a visual indication of transmission activity.
 
-// ---------------- GPIO ----------------
-void GPIO_Init(void)
-{
-    RCC->AHB2ENR |= RCC_AHB2ENR_GPIOAEN;
-    RCC->AHB2ENR |= RCC_AHB2ENR_GPIOBEN;
+## RS485 Bus
+- A -> RS485_A
+- B -> RS485_B
 
-    // USART2: PA2 TX, PA3 RX
-    GPIOA->MODER &= ~((3U << (2 * 2)) | (3U << (3 * 2)));
-    GPIOA->MODER |=  ((2U << (2 * 2)) | (2U << (3 * 2)));
+These two wires form the RS485 communication channel.
 
-    GPIOA->AFR[0] &= ~((0xFU << (4 * 2)) | (0xFU << (4 * 3)));
-    GPIOA->AFR[0] |=  ((7U   << (4 * 2)) | (7U   << (4 * 3)));
+## Working Principle
+The STM32 uses UART to generate serial data.  
+The SN75176 transceiver converts UART signals into RS485 differential signals.  
+PB5 controls whether the transceiver is in transmit mode or receive mode.  
+When PB5 is high, the system transmits data.  
+When PB5 is low, the system returns to receive mode.
 
-    // USART1: PA9 TX, PA10 RX
-    GPIOA->MODER &= ~((3U << (9 * 2)) | (3U << (10 * 2)));
-    GPIOA->MODER |=  ((2U << (9 * 2)) | (2U << (10 * 2)));
+## Software Implementation
+The final working software was implemented using low-level register programming.  
+GPIO and USART peripherals were configured by directly accessing STM32 registers.
 
-    GPIOA->AFR[1] &= ~((0xFU << (4 * (9 - 8))) | (0xFU << (4 * (10 - 8))));
-    GPIOA->AFR[1] |=  ((7U   << (4 * (9 - 8))) | (7U   << (4 * (10 - 8))));
+A HAL-based approach was explored during development, but the final verified implementation used register-level programming because it produced stable and correct operation.
 
-    // PB5 = DE + RE̅ control
-    GPIOB->MODER &= ~(3U << (5 * 2));
-    GPIOB->MODER |=  (1U << (5 * 2));   // output
-    GPIOB->ODR &= ~(1U << 5);           // receive mode default
-}
+## Testing and Debugging
+The system was tested using:
+- Serial monitor output
+- LED indication
+- Manual reset observation
+- Verification of GPIO and USART behavior
 
-// ---------------- USART init ----------------
-void USART2_Init(void)
-{
-    RCC->APB1ENR1 |= RCC_APB1ENR1_USART2EN;
+The LED was used as an ad-hoc debugging method to confirm when the transceiver entered transmit mode.
 
-    USART2->CR1 = 0;
-    USART2->CR2 = 0;
-    USART2->CR3 = 0;
-    USART2->BRR = CPU_CLOCK / 9600;
+## Results
+The system successfully transmitted the message:
 
-    USART2->CR1 |= (1 << 3);   // TE
-    USART2->CR1 |= (1 << 2);   // RE
-    USART2->CR1 |= (1 << 0);   // UE
-}
+`Hello from Person 1`
 
-void USART1_Init(void)
-{
-    RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
+through the RS485 channel.  
+Serial monitor output confirmed that the communication logic worked correctly.
 
-    USART1->CR1 = 0;
-    USART1->CR2 = 0;
-    USART1->CR3 = 0;
-    USART1->BRR = CPU_CLOCK / 9600;
+## Circuit Diagram
+![Schematic](schematic.png)
 
-    USART1->CR1 |= (1 << 3);   // TE
-    USART1->CR1 |= (1 << 2);   // RE
-    USART1->CR1 |= (1 << 0);   // UE
-}
+## Demo Video
+Paste your YouTube link here
 
-// ---------------- RS485 mode ----------------
-void RS485_TransmitMode(void)
-{
-    GPIOB->ODR |= (1U << 5);   // DE=1, RE̅=1
-}
-
-void RS485_ReceiveMode(void)
-{
-    GPIOB->ODR &= ~(1U << 5);  // DE=0, RE̅=0
-}
-
-// ---------------- Main ----------------
-int main(void)
-{
-    GPIO_Init();
-    USART2_Init();
-    USART1_Init();
-
-    USART2_SendString("\r\n=== PERSON 1 TRANSMITTER READY ===\r\n");
-
-    while (1)
-    {
-        USART2_SendString("Sending: Hello from Person 1\r\n");
-
-        RS485_TransmitMode();
-        USART1_SendString("Hello from Person 1\r\n");
-        RS485_ReceiveMode();
-
-        delay_ms(1000);
-    }
-}
+## Author
+Your Name
