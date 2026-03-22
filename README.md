@@ -161,8 +161,7 @@ https://github.com/jhansikotla7004/whazzup-rs485-stm32/blob/main/src/main.c
 - RS485 communication using SN75176  
 - Direction control using PB5 (DE/RE)   
 ## Demo Video
-
-
+https://youtu.be/tJVlsnRzWfQ?si=JAhtyjtGYYxxjAPA
 ## Author
 KOTLA JHANSI LAKSHMI
 
