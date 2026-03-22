@@ -73,6 +73,8 @@ through the RS485 channel.
 Serial monitor output confirmed that the communication logic worked correctly.
 
 ## Circuit Diagram
+## 📷 Circuit Diagram
+![Schematic](Schematic.png)
 
 ## 💻 Source Code
 
