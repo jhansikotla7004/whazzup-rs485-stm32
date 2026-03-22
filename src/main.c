@@ -1,116 +1,53 @@
-#include "stm32l4xx.h"
+#include "stm32l4xx_hal.h"
+#include <string.h>
 
-#define CPU_CLOCK 4000000UL
+UART_HandleTypeDef huart1;   // RS485
+UART_HandleTypeDef huart2;   // PC terminal
 
-void delay_ms(volatile uint32_t ms)
+static void MX_GPIO_Init(void);
+static void MX_USART1_UART_Init(void);
+static void MX_USART2_UART_Init(void);
+static void Error_Handler(void);
+
+static void delay_simple(volatile uint32_t d)
 {
-    for (volatile uint32_t i = 0; i < ms * 4000; i++);
-}
-
-// ---------------- USART2 : PC terminal ----------------
-void USART2_SendChar(char c)
-{
-    while ((USART2->ISR & (1 << 7)) == 0);   // TXE
-    USART2->TDR = c;
-}
-
-void USART2_SendString(const char *s)
-{
-    while (*s)
+    while (d--)
     {
-        USART2_SendChar(*s++);
     }
 }
 
-// ---------------- USART1 : RS485 ----------------
-void USART1_SendChar(char c)
+static void USART2_SendString(const char *s)
 {
-    while ((USART1->ISR & (1 << 7)) == 0);   // TXE
-    USART1->TDR = c;
-}
-
-void USART1_SendString(const char *s)
-{
-    while (*s)
+    if (HAL_UART_Transmit(&huart2, (uint8_t *)s, strlen(s), HAL_MAX_DELAY) != HAL_OK)
     {
-        USART1_SendChar(*s++);
+        Error_Handler();
     }
-
-    while ((USART1->ISR & (1 << 6)) == 0);   // TC
 }
 
-// ---------------- GPIO ----------------
-void GPIO_Init(void)
+static void USART1_SendString(const char *s)
 {
-    RCC->AHB2ENR |= RCC_AHB2ENR_GPIOAEN;
-    RCC->AHB2ENR |= RCC_AHB2ENR_GPIOBEN;
-
-    // USART2: PA2 TX, PA3 RX
-    GPIOA->MODER &= ~((3U << (2 * 2)) | (3U << (3 * 2)));
-    GPIOA->MODER |=  ((2U << (2 * 2)) | (2U << (3 * 2)));
-
-    GPIOA->AFR[0] &= ~((0xFU << (4 * 2)) | (0xFU << (4 * 3)));
-    GPIOA->AFR[0] |=  ((7U   << (4 * 2)) | (7U   << (4 * 3)));
-
-    // USART1: PA9 TX, PA10 RX
-    GPIOA->MODER &= ~((3U << (9 * 2)) | (3U << (10 * 2)));
-    GPIOA->MODER |=  ((2U << (9 * 2)) | (2U << (10 * 2)));
-
-    GPIOA->AFR[1] &= ~((0xFU << (4 * (9 - 8))) | (0xFU << (4 * (10 - 8))));
-    GPIOA->AFR[1] |=  ((7U   << (4 * (9 - 8))) | (7U   << (4 * (10 - 8))));
-
-    // PB5 = DE + RE̅ control
-    GPIOB->MODER &= ~(3U << (5 * 2));
-    GPIOB->MODER |=  (1U << (5 * 2));   // output
-    GPIOB->ODR &= ~(1U << 5);           // receive mode default
+    if (HAL_UART_Transmit(&huart1, (uint8_t *)s, strlen(s), HAL_MAX_DELAY) != HAL_OK)
+    {
+        Error_Handler();
+    }
 }
 
-// ---------------- USART init ----------------
-void USART2_Init(void)
+static void RS485_TransmitMode(void)
 {
-    RCC->APB1ENR1 |= RCC_APB1ENR1_USART2EN;
-
-    USART2->CR1 = 0;
-    USART2->CR2 = 0;
-    USART2->CR3 = 0;
-    USART2->BRR = CPU_CLOCK / 9600;
-
-    USART2->CR1 |= (1 << 3);   // TE
-    USART2->CR1 |= (1 << 2);   // RE
-    USART2->CR1 |= (1 << 0);   // UE
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_SET);   // DE=1, RE̅=1
 }
 
-void USART1_Init(void)
+static void RS485_ReceiveMode(void)
 {
-    RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
-
-    USART1->CR1 = 0;
-    USART1->CR2 = 0;
-    USART1->CR3 = 0;
-    USART1->BRR = CPU_CLOCK / 9600;
-
-    USART1->CR1 |= (1 << 3);   // TE
-    USART1->CR1 |= (1 << 2);   // RE
-    USART1->CR1 |= (1 << 0);   // UE
+    HAL_GPIO_WritePin(GPIOB, GPIO_PIN_5, GPIO_PIN_RESET); // DE=0, RE̅=0
 }
 
-// ---------------- RS485 mode ----------------
-void RS485_TransmitMode(void)
-{
-    GPIOB->ODR |= (1U << 5);   // DE=1, RE̅=1
-}
-
-void RS485_ReceiveMode(void)
-{
-    GPIOB->ODR &= ~(1U << 5);  // DE=0, RE̅=0
-}
-
-// ---------------- Main ----------------
 int main(void)
 {
-    GPIO_Init();
-    USART2_Init();
-    USART1_Init();
+    HAL_Init();
+    MX_GPIO_Init();
+    MX_USART2_UART_Init();
+    MX_USART1_UART_Init();
 
     USART2_SendString("\r\n=== PERSON 1 TRANSMITTER READY ===\r\n");
 
@@ -122,6 +59,86 @@ int main(void)
         USART1_SendString("Hello from Person 1\r\n");
         RS485_ReceiveMode();
 
-        delay_ms(1000);
+        delay_simple(1200000);
+    }
+}
+
+static void MX_GPIO_Init(void)
+{
+    GPIO_InitTypeDef GPIO_InitStruct = {0};
+
+    __HAL_RCC_GPIOA_CLK_ENABLE();
+    __HAL_RCC_GPIOB_CLK_ENABLE();
+    __HAL_RCC_USART1_CLK_ENABLE();
+    __HAL_RCC_USART2_CLK_ENABLE();
+
+    // USART2: PA2 TX, PA3 RX
+    GPIO_InitStruct.Pin = GPIO_PIN_2 | GPIO_PIN_3;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    GPIO_InitStruct.Alternate = GPIO_AF7_USART2;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+    // USART1: PA9 TX, PA10 RX
+    GPIO_InitStruct.Pin = GPIO_PIN_9 | GPIO_PIN_10;
+    GPIO_InitStruct.Mode = GPIO_MODE_AF_PP;
+    GPIO_InitStruct.Pull = GPIO_PULLUP;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_VERY_HIGH;
+    GPIO_InitStruct.Alternate = GPIO_AF7_USART1;
+    HAL_GPIO_Init(GPIOA, &GPIO_InitStruct);
+
+    // PB5: DE + RE̅ control
+    GPIO_InitStruct.Pin = GPIO_PIN_5;
+    GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
+    GPIO_InitStruct.Pull = GPIO_NOPULL;
+    GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
+    HAL_GPIO_Init(GPIOB, &GPIO_InitStruct);
+
+    RS485_ReceiveMode();
+}
+
+static void MX_USART2_UART_Init(void)
+{
+    huart2.Instance = USART2;
+    huart2.Init.BaudRate = 9600;
+    huart2.Init.WordLength = UART_WORDLENGTH_8B;
+    huart2.Init.StopBits = UART_STOPBITS_1;
+    huart2.Init.Parity = UART_PARITY_NONE;
+    huart2.Init.Mode = UART_MODE_TX_RX;
+    huart2.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+    huart2.Init.OverSampling = UART_OVERSAMPLING_16;
+    huart2.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+    huart2.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+
+    if (HAL_UART_Init(&huart2) != HAL_OK)
+    {
+        Error_Handler();
+    }
+}
+
+static void MX_USART1_UART_Init(void)
+{
+    huart1.Instance = USART1;
+    huart1.Init.BaudRate = 9600;
+    huart1.Init.WordLength = UART_WORDLENGTH_8B;
+    huart1.Init.StopBits = UART_STOPBITS_1;
+    huart1.Init.Parity = UART_PARITY_NONE;
+    huart1.Init.Mode = UART_MODE_TX_RX;
+    huart1.Init.HwFlowCtl = UART_HWCONTROL_NONE;
+    huart1.Init.OverSampling = UART_OVERSAMPLING_16;
+    huart1.Init.OneBitSampling = UART_ONE_BIT_SAMPLE_DISABLE;
+    huart1.AdvancedInit.AdvFeatureInit = UART_ADVFEATURE_NO_INIT;
+
+    if (HAL_UART_Init(&huart1) != HAL_OK)
+    {
+        Error_Handler();
+    }
+}
+
+static void Error_Handler(void)
+{
+    while (1)
+    {
     }
 }
