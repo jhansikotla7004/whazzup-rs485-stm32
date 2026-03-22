@@ -78,7 +78,7 @@ Serial monitor output confirmed that the communication logic worked correctly.
 
 ## 💻 Source Code
 The main program is available in:
-`src/main.c`
+https://github.com/jhansikotla7004/whazzup-rs485-stm32/blob/main/src/main.c
 ### Key Features:
 - UART communication using USART1 and USART2  
 - RS485 communication using SN75176  
