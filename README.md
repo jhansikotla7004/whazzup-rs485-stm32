@@ -1,70 +1,127 @@
-📡 WhazzUp – RS485 Communication using STM32
+#include "stm32l4xx.h"
 
-## 🟢 Overview
+#define CPU_CLOCK 4000000UL
 
-This project demonstrates communication between two STM32 boards using UART extended with RS485 for long-distance and reliable data transmission.
+void delay_ms(volatile uint32_t ms)
+{
+    for (volatile uint32_t i = 0; i < ms * 4000; i++);
+}
 
-## 🎯 Aim
+// ---------------- USART2 : PC terminal ----------------
+void USART2_SendChar(char c)
+{
+    while ((USART2->ISR & (1 << 7)) == 0);   // TXE
+    USART2->TDR = c;
+}
 
-To design and implement communication between two embedded systems using UART and RS485.
+void USART2_SendString(const char *s)
+{
+    while (*s)
+    {
+        USART2_SendChar(*s++);
+    }
+}
 
-## 🧠 Key Concepts
+// ---------------- USART1 : RS485 ----------------
+void USART1_SendChar(char c)
+{
+    while ((USART1->ISR & (1 << 7)) == 0);   // TXE
+    USART1->TDR = c;
+}
 
-* UART Communication
-* RS485 Differential Signaling
-* Half-Duplex Communication
-* Communication Channels (A & B)
-* Register-Level Programming
+void USART1_SendString(const char *s)
+{
+    while (*s)
+    {
+        USART1_SendChar(*s++);
+    }
 
----
+    while ((USART1->ISR & (1 << 6)) == 0);   // TC
+}
 
-## 🔧 Hardware Components
+// ---------------- GPIO ----------------
+void GPIO_Init(void)
+{
+    RCC->AHB2ENR |= RCC_AHB2ENR_GPIOAEN;
+    RCC->AHB2ENR |= RCC_AHB2ENR_GPIOBEN;
 
-* STM32L432KC
-* SN75176 RS485 Transceiver
-* Breadboard
-* LED + Resistor
-* Jumper wires
+    // USART2: PA2 TX, PA3 RX
+    GPIOA->MODER &= ~((3U << (2 * 2)) | (3U << (3 * 2)));
+    GPIOA->MODER |=  ((2U << (2 * 2)) | (2U << (3 * 2)));
 
-## 🔌 Circuit Connections
+    GPIOA->AFR[0] &= ~((0xFU << (4 * 2)) | (0xFU << (4 * 3)));
+    GPIOA->AFR[0] |=  ((7U   << (4 * 2)) | (7U   << (4 * 3)));
 
-| STM32 Pin | RS485 Pin | Function     |
-| --------- | --------- | ------------ |
-| PA9       | DI        | Transmit     |
-| PA10      | RO        | Receive      |
-| PB5       | DE + RE   | Mode Control |
+    // USART1: PA9 TX, PA10 RX
+    GPIOA->MODER &= ~((3U << (9 * 2)) | (3U << (10 * 2)));
+    GPIOA->MODER |=  ((2U << (9 * 2)) | (2U << (10 * 2)));
 
+    GPIOA->AFR[1] &= ~((0xFU << (4 * (9 - 8))) | (0xFU << (4 * (10 - 8))));
+    GPIOA->AFR[1] |=  ((7U   << (4 * (9 - 8))) | (7U   << (4 * (10 - 8))));
 
-## 💡 LED Indicator
+    // PB5 = DE + RE̅ control
+    GPIOB->MODER &= ~(3U << (5 * 2));
+    GPIOB->MODER |=  (1U << (5 * 2));   // output
+    GPIOB->ODR &= ~(1U << 5);           // receive mode default
+}
 
-PB5 → Resistor → LED → GND
-Used to indicate transmission mode.
+// ---------------- USART init ----------------
+void USART2_Init(void)
+{
+    RCC->APB1ENR1 |= RCC_APB1ENR1_USART2EN;
 
+    USART2->CR1 = 0;
+    USART2->CR2 = 0;
+    USART2->CR3 = 0;
+    USART2->BRR = CPU_CLOCK / 9600;
 
-## 🔁 Working Principle
+    USART2->CR1 |= (1 << 3);   // TE
+    USART2->CR1 |= (1 << 2);   // RE
+    USART2->CR1 |= (1 << 0);   // UE
+}
 
-1. STM32 sends data using UART
-2. RS485 converts it into differential signals
-3. Data travels through A & B wires
-4. Receiver converts it back to UART
+void USART1_Init(void)
+{
+    RCC->APB2ENR |= RCC_APB2ENR_USART1EN;
 
-## 🧪 Testing
+    USART1->CR1 = 0;
+    USART1->CR2 = 0;
+    USART1->CR3 = 0;
+    USART1->BRR = CPU_CLOCK / 9600;
 
-* Verified output using serial monitor
-* LED used to confirm transmit mode
+    USART1->CR1 |= (1 << 3);   // TE
+    USART1->CR1 |= (1 << 2);   // RE
+    USART1->CR1 |= (1 << 0);   // UE
+}
 
+// ---------------- RS485 mode ----------------
+void RS485_TransmitMode(void)
+{
+    GPIOB->ODR |= (1U << 5);   // DE=1, RE̅=1
+}
 
-## 📊 Results
+void RS485_ReceiveMode(void)
+{
+    GPIOB->ODR &= ~(1U << 5);  // DE=0, RE̅=0
+}
 
-* Successful communication achieved
-* Stable transmission observed
+// ---------------- Main ----------------
+int main(void)
+{
+    GPIO_Init();
+    USART2_Init();
+    USART1_Init();
 
-## ⚙️ Software
+    USART2_SendString("\r\n=== PERSON 1 TRANSMITTER READY ===\r\n");
 
-Implemented using register-level programming.
+    while (1)
+    {
+        USART2_SendString("Sending: Hello from Person 1\r\n");
 
-## 📽️ Demo Video
+        RS485_TransmitMode();
+        USART1_SendString("Hello from Person 1\r\n");
+        RS485_ReceiveMode();
 
-## 👨‍💻 Author
-
-KOTLA JHANSI LAKSHMI
+        delay_ms(1000);
+    }
+}
